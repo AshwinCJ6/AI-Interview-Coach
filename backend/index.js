@@ -3,6 +3,9 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const resumeRoutes = require('./routes/resume');
+const questionRoutes = require('./routes/questions');
+const interviewRoutes = require('./routes/interview');
 
 dotenv.config();
 
@@ -16,8 +19,11 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/resume', resumeRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/interview', interviewRoutes);
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5001;
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
