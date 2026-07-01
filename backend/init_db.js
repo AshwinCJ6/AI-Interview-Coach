@@ -18,20 +18,32 @@ async function init() {
 
     await conn.changeUser({ database: DB_NAME });
 
-    const createTableSql = `
+    // users table
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100),
         email VARCHAR(100) UNIQUE,
         password VARCHAR(255),
-        role ENUM('student','admin')
+        role ENUM('student','admin'),
+        last_login TIMESTAMP NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+    `);
+    console.log('Table \`users\` ensured.');
 
-    await conn.query(createTableSql);
-    console.log('Table `users` ensured.');
+    // Add last_login column if it doesn't exist yet
+    const [lastLoginCols] = await conn.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'last_login'`,
+      [DB_NAME]
+    );
+    if (lastLoginCols.length === 0) {
+      await conn.query(`ALTER TABLE users ADD COLUMN last_login TIMESTAMP NULL`);
+      console.log('Column last_login added to users.');
+    }
 
-    const createResumesTableSql = `
+    // resumes
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS resumes (
         id INT AUTO_INCREMENT PRIMARY KEY,
         student_id INT NOT NULL,
@@ -40,9 +52,11 @@ async function init() {
         INDEX idx_student_id (student_id),
         FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+    `);
+    console.log('Table \`resumes\` ensured.');
 
-    const createProfilesTableSql = `
+    // student_profiles
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS student_profiles (
         id INT AUTO_INCREMENT PRIMARY KEY,
         student_id INT NOT NULL UNIQUE,
@@ -55,9 +69,11 @@ async function init() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+    `);
+    console.log('Table \`student_profiles\` ensured.');
 
-    const createQuestionsTableSql = `
+    // questions
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS questions (
         id INT AUTO_INCREMENT PRIMARY KEY,
         question_text TEXT NOT NULL,
@@ -65,12 +81,92 @@ async function init() {
         language VARCHAR(100) NOT NULL,
         difficulty ENUM('Easy', 'Medium', 'Hard') NOT NULL,
         category VARCHAR(100) NOT NULL,
+        question_type ENUM('Objective','Subjective','Coding','Scenario Based') DEFAULT 'Subjective',
+        keywords TEXT,
+        marks INT DEFAULT 10,
         expected_answer TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+    `);
+    console.log('Table \`questions\` ensured.');
 
-    const createInterviewConfigsTableSql = `
+    // Add question_type column if missing
+    const [qtCols] = await conn.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'questions' AND COLUMN_NAME = 'question_type'`,
+      [DB_NAME]
+    );
+    if (qtCols.length === 0) {
+      await conn.query(`ALTER TABLE questions ADD COLUMN question_type ENUM('Objective','Subjective','Coding','Scenario Based') DEFAULT 'Subjective'`);
+      console.log('Column question_type added to questions.');
+    }
+
+    const [kwCols] = await conn.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'questions' AND COLUMN_NAME = 'keywords'`,
+      [DB_NAME]
+    );
+    if (kwCols.length === 0) {
+      await conn.query(`ALTER TABLE questions ADD COLUMN keywords TEXT`);
+      console.log('Column keywords added to questions.');
+    }
+
+    const [marksCols] = await conn.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'questions' AND COLUMN_NAME = 'marks'`,
+      [DB_NAME]
+    );
+    if (marksCols.length === 0) {
+      await conn.query(`ALTER TABLE questions ADD COLUMN marks INT DEFAULT 10`);
+      console.log('Column marks added to questions.');
+    }
+
+    // categories
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log('Table \`categories\` ensured.');
+
+    // Seed default categories
+    const defaultCategories = [
+      'Frontend Development', 'Backend Development', 'Full Stack Development',
+      'Java', 'Python', 'JavaScript', 'C Programming',
+      'Data Structures', 'Machine Learning', 'Artificial Intelligence',
+      'HR Interview', 'Communication Skills'
+    ];
+    for (const cat of defaultCategories) {
+      await conn.query(`INSERT IGNORE INTO categories (name) VALUES (?)`, [cat]);
+    }
+    console.log('Default categories seeded.');
+
+    // ai_settings
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS ai_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        setting_key VARCHAR(100) NOT NULL UNIQUE,
+        setting_value VARCHAR(255) NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log('Table \`ai_settings\` ensured.');
+
+    // Seed default AI settings
+    const defaultSettings = [
+      ['ai_enabled', 'true'],
+      ['coverage_threshold', '70'],
+      ['max_sub_questions', '3'],
+      ['default_difficulty', 'Medium']
+    ];
+    for (const [key, value] of defaultSettings) {
+      await conn.query(`INSERT IGNORE INTO ai_settings (setting_key, setting_value) VALUES (?, ?)`, [key, value]);
+    }
+    console.log('Default AI settings seeded.');
+
+    // interview_configs
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS interview_configs (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
@@ -82,9 +178,11 @@ async function init() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+    `);
+    console.log('Table \`interview_configs\` ensured.');
 
-    const createCompanyDocumentsTableSql = `
+    // company_documents
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS company_documents (
         id INT AUTO_INCREMENT PRIMARY KEY,
         student_id INT NOT NULL,
@@ -95,20 +193,11 @@ async function init() {
         uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+    `);
+    console.log('Table \`company_documents\` ensured.');
 
-    await conn.query(createResumesTableSql);
-    console.log('Table `resumes` ensured.');
-    await conn.query(createProfilesTableSql);
-    console.log('Table `student_profiles` ensured.');
-    await conn.query(createQuestionsTableSql);
-    console.log('Table `questions` ensured.');
-    await conn.query(createInterviewConfigsTableSql);
-    console.log('Table `interview_configs` ensured.');
-    await conn.query(createCompanyDocumentsTableSql);
-    console.log('Table `company_documents` ensured.');
-
-    const createInterviewsTableSql = `
+    // interviews
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS interviews (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
@@ -121,9 +210,11 @@ async function init() {
         completed_at TIMESTAMP NULL,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+    `);
+    console.log('Table \`interviews\` ensured.');
 
-    const createResponsesTableSql = `
+    // responses
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS responses (
         id INT AUTO_INCREMENT PRIMARY KEY,
         interview_id INT NOT NULL,
@@ -140,9 +231,11 @@ async function init() {
         FOREIGN KEY (interview_id) REFERENCES interviews(id) ON DELETE CASCADE,
         FOREIGN KEY (parent_response_id) REFERENCES responses(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+    `);
+    console.log('Table \`responses\` ensured.');
 
-    const createEvaluationReportsTableSql = `
+    // evaluation_reports
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS evaluation_reports (
         id INT AUTO_INCREMENT PRIMARY KEY,
         interview_id INT NOT NULL UNIQUE,
@@ -162,9 +255,11 @@ async function init() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (interview_id) REFERENCES interviews(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+    `);
+    console.log('Table \`evaluation_reports\` ensured.');
 
-    const createPerformanceMetricsTableSql = `
+    // performance_metrics
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS performance_metrics (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
@@ -176,16 +271,8 @@ async function init() {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (interview_id) REFERENCES interviews(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
-
-    await conn.query(createInterviewsTableSql);
-    console.log('Table `interviews` ensured.');
-    await conn.query(createResponsesTableSql);
-    console.log('Table `responses` ensured.');
-    await conn.query(createEvaluationReportsTableSql);
-    console.log('Table `evaluation_reports` ensured.');
-    await conn.query(createPerformanceMetricsTableSql);
-    console.log('Table `performance_metrics` ensured.');
+    `);
+    console.log('Table \`performance_metrics\` ensured.');
 
     await conn.end();
     console.log('Init finished successfully.');
