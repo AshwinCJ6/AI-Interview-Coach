@@ -21,7 +21,7 @@ function App() {
     <div className="app-shell">
       {user && <NavBar />}
       <Routes>
-        <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
+        <Route path="/" element={user ? (user.role === 'admin' ? <Navigate to="/admin-dashboard" replace /> : <Navigate to="/dashboard" replace />) : <Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 

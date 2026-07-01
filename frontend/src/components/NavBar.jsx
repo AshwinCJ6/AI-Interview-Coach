@@ -17,15 +17,18 @@ export default function NavBar() {
     <nav className="nav-bar">
       <div className="nav-brand">Interview Prep AI</div>
       <div className="nav-links">
-        <NavLink to="/dashboard">Dashboard</NavLink>
-        <NavLink to="/resume">Resume</NavLink>
-        <NavLink to="/interview-setup">Interview Setup</NavLink>
-        <NavLink to="/history">History</NavLink>
-        <NavLink to="/improvements">Improvements</NavLink>
-        {user?.role === 'admin' && (
+        {user?.role === 'admin' ? (
           <>
-            <NavLink to="/admin-dashboard">Admin</NavLink>
-            <NavLink to="/question-management">Questions</NavLink>
+            <NavLink to="/admin-dashboard">Admin Dashboard</NavLink>
+            <NavLink to="/question-management">Question Bank</NavLink>
+          </>
+        ) : (
+          <>
+            <NavLink to="/dashboard">Dashboard</NavLink>
+            <NavLink to="/resume">Resume</NavLink>
+            <NavLink to="/interview-setup">Interview Setup</NavLink>
+            <NavLink to="/history">History</NavLink>
+            <NavLink to="/improvements">Improvements</NavLink>
           </>
         )}
       </div>

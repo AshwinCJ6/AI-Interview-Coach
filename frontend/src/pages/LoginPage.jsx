@@ -19,8 +19,12 @@ export default function LoginPage() {
     }
 
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const response = await login(email, password);
+      if (response.data.user.role === 'admin') {
+        navigate('/admin-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed.');
     }
