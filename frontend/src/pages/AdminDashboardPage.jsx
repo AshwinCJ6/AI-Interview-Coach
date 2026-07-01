@@ -317,125 +317,6 @@ function AnalyticsTab() {
   );
 }
 
-// ─── Tab: AI Configuration ────────────────────────────────────────────────
-
-function AIConfigTab() {
-  const [config, setConfig] = useState({
-    ai_enabled: 'true',
-    coverage_threshold: '70',
-    max_sub_questions: '3',
-    default_difficulty: 'Medium'
-  });
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    axios.get('/api/admin/ai-config')
-      .then(r => setConfig(prev => ({ ...prev, ...r.data })))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    setMessage('');
-    try {
-      await axios.put('/api/admin/ai-config', config);
-      setMessage('✅ AI configuration saved successfully.');
-    } catch {
-      setMessage('❌ Failed to save configuration.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return <div className="admin-loading">Loading AI config…</div>;
-
-  return (
-    <div className="admin-tab-content">
-      <div className="admin-section-header">
-        <h3>AI Interview Configuration</h3>
-        <p>Control how the AI generates and evaluates interview questions for students.</p>
-      </div>
-      <div className="ai-config-card">
-        <div className="ai-config-row">
-          <div className="ai-config-field">
-            <label>AI-Generated Questions</label>
-            <div className="toggle-row">
-              <button
-                type="button"
-                className={`toggle-btn ${config.ai_enabled === 'true' ? 'toggle-on' : ''}`}
-                onClick={() => setConfig(p => ({ ...p, ai_enabled: 'true' }))}
-              >
-                Enable
-              </button>
-              <button
-                type="button"
-                className={`toggle-btn ${config.ai_enabled === 'false' ? 'toggle-off-active' : ''}`}
-                onClick={() => setConfig(p => ({ ...p, ai_enabled: 'false' }))}
-              >
-                Disable
-              </button>
-            </div>
-            <p className="ai-config-hint">When enabled, the AI generates contextual follow-up sub-questions.</p>
-          </div>
-
-          <div className="ai-config-field">
-            <label>Answer Coverage Threshold (%)</label>
-            <input
-              type="number"
-              min="10"
-              max="100"
-              value={config.coverage_threshold}
-              onChange={e => setConfig(p => ({ ...p, coverage_threshold: e.target.value }))}
-              className="ai-config-input"
-            />
-            <p className="ai-config-hint">Minimum answer coverage required before moving to next question.</p>
-          </div>
-
-          <div className="ai-config-field">
-            <label>Maximum Sub-Questions per Question</label>
-            <input
-              type="number"
-              min="0"
-              max="10"
-              value={config.max_sub_questions}
-              onChange={e => setConfig(p => ({ ...p, max_sub_questions: e.target.value }))}
-              className="ai-config-input"
-            />
-            <p className="ai-config-hint">Maximum follow-up sub-questions the AI can ask per main question.</p>
-          </div>
-
-          <div className="ai-config-field">
-            <label>Default Interview Difficulty</label>
-            <div className="difficulty-toggle-row">
-              {['Easy', 'Medium', 'Hard'].map(d => (
-                <button
-                  key={d}
-                  type="button"
-                  className={`diff-btn diff-${d.toLowerCase()} ${config.default_difficulty === d ? 'diff-active' : ''}`}
-                  onClick={() => setConfig(p => ({ ...p, default_difficulty: d }))}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-            <p className="ai-config-hint">Default difficulty level applied when students do not specify one.</p>
-          </div>
-        </div>
-
-        <div className="ai-config-actions">
-          <button type="button" className="admin-save-btn" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : '💾 Save Configuration'}
-          </button>
-          {message && <div className={`admin-msg-box ${message.startsWith('✅') ? 'success' : 'error'}`}>{message}</div>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Admin Dashboard Page ────────────────────────────────────────────
 
 const TABS = [
@@ -443,7 +324,6 @@ const TABS = [
   { id: 'students', label: '👥 Students' },
   { id: 'statistics', label: '📊 Statistics' },
   { id: 'analytics', label: '📈 Analytics' },
-  { id: 'ai-config', label: '🤖 AI Config' },
 ];
 
 export default function AdminDashboardPage() {
@@ -476,7 +356,6 @@ export default function AdminDashboardPage() {
         {activeTab === 'students' && <StudentsTab />}
         {activeTab === 'statistics' && <StatisticsTab />}
         {activeTab === 'analytics' && <AnalyticsTab />}
-        {activeTab === 'ai-config' && <AIConfigTab />}
       </div>
     </div>
   );

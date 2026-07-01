@@ -159,6 +159,25 @@ export default function InterviewSetupPage() {
   };
 
   useEffect(() => {
+    const loadDefaultDifficulty = async () => {
+      try {
+        const response = await axios.get('/api/admin/ai-config');
+        const configuredDifficulty = response?.data?.default_difficulty;
+        if (configuredDifficulty) {
+          setSetup((prev) => ({
+            ...prev,
+            difficulty: prev.difficulty === initialSetup.difficulty ? configuredDifficulty : prev.difficulty
+          }));
+        }
+      } catch (error) {
+        console.warn('Unable to load default interview difficulty:', error);
+      }
+    };
+
+    loadDefaultDifficulty();
+  }, []);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       generateQuestions(true);
     }, 400);

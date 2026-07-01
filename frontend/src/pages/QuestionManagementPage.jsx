@@ -6,31 +6,23 @@ const initialFormState = {
   platform: 'Frontend Developer',
   language: 'JavaScript',
   difficulty: 'Medium',
-  category: 'Frontend Development',
   question_type: 'Subjective',
   keywords: '',
-  marks: 10,
   expected_answer: ''
 };
 
 export default function QuestionManagementPage() {
-  const [activeTab, setActiveTab] = useState('questions'); // 'questions' | 'categories'
+  const [activeTab, setActiveTab] = useState('questions');
   
   // Question State
   const [form, setForm] = useState(initialFormState);
   const [questions, setQuestions] = useState([]);
-  const [filters, setFilters] = useState({ platform: '', language: '', difficulty: '', category: '', question_type: '', search: '' });
+  const [filters, setFilters] = useState({ platform: '', language: '', difficulty: '', question_type: '', search: '' });
   const [editingId, setEditingId] = useState(null);
   const [questionMsg, setQuestionMsg] = useState('');
   
   // Modal State
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
-
-  // Category State
-  const [categories, setCategories] = useState([]);
-  const [catName, setCatName] = useState('');
-  const [editingCatId, setEditingCatId] = useState(null);
-  const [catMsg, setCatMsg] = useState('');
 
   // Dropdown options
   const [platforms, setPlatforms] = useState([]);
@@ -40,54 +32,7 @@ export default function QuestionManagementPage() {
 
   useEffect(() => {
     fetchQuestions();
-    fetchCategories();
   }, []);
-
-  // ─── Categories ────────────────────────────────────────────────────────
-  
-  const fetchCategories = async () => {
-    try {
-      const res = await axios.get('/api/admin/categories');
-      setCategories(res.data.categories || []);
-    } catch (error) {
-      console.error('Failed to fetch categories', error);
-    }
-  };
-
-  const handleSaveCategory = async (e) => {
-    e.preventDefault();
-    setCatMsg('');
-    try {
-      if (editingCatId) {
-        await axios.put(`/api/admin/categories/${editingCatId}`, { name: catName });
-        setCatMsg('✅ Category updated.');
-      } else {
-        await axios.post('/api/admin/categories', { name: catName });
-        setCatMsg('✅ Category added.');
-      }
-      setCatName('');
-      setEditingCatId(null);
-      fetchCategories();
-    } catch (error) {
-      setCatMsg(`❌ ${error.response?.data?.message || 'Failed to save category.'}`);
-    }
-  };
-
-  const startEditCategory = (cat) => {
-    setCatName(cat.name);
-    setEditingCatId(cat.id);
-  };
-
-  const deleteCategory = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this category?')) return;
-    try {
-      await axios.delete(`/api/admin/categories/${id}`);
-      setCatMsg('✅ Category deleted.');
-      fetchCategories();
-    } catch (error) {
-      setCatMsg('❌ Failed to delete category.');
-    }
-  };
 
   // ─── Questions ─────────────────────────────────────────────────────────
 
@@ -139,10 +84,8 @@ export default function QuestionManagementPage() {
       platform: q.platform,
       language: q.language,
       difficulty: q.difficulty,
-      category: q.category,
       question_type: q.question_type || 'Subjective',
       keywords: q.keywords || '',
-      marks: q.marks || 10,
       expected_answer: q.expected_answer || ''
     });
     setEditingId(q.id);
@@ -191,55 +134,7 @@ export default function QuestionManagementPage() {
         >
           Questions
         </button>
-        <button
-          className={`admin-tab-btn ${activeTab === 'categories' ? 'admin-tab-active' : ''}`}
-          onClick={() => setActiveTab('categories')}
-        >
-          Categories
-        </button>
       </div>
-
-      {activeTab === 'categories' && (
-        <div className="admin-tab-content">
-          <div className="card">
-            <h3>Manage Categories</h3>
-            <form onSubmit={handleSaveCategory} className="category-form" style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginBottom: '24px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#cbd5e1' }}>Category Name</label>
-                <input
-                  type="text"
-                  value={catName}
-                  onChange={e => setCatName(e.target.value)}
-                  placeholder="e.g., System Design"
-                  style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #475569', background: '#1e293b', color: '#f8fafc' }}
-                  required
-                />
-              </div>
-              <button type="submit" className="primary-button" style={{ padding: '12px 24px', borderRadius: '12px' }}>
-                {editingCatId ? 'Update' : 'Add'}
-              </button>
-              {editingCatId && (
-                <button type="button" onClick={() => { setEditingCatId(null); setCatName(''); }} className="secondary" style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #475569', background: 'transparent', color: '#f8fafc' }}>
-                  Cancel
-                </button>
-              )}
-            </form>
-            {catMsg && <div className="message-box" style={{ marginBottom: '24px' }}>{catMsg}</div>}
-
-            <div className="category-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-              {categories.map(cat => (
-                <div key={cat.id} className="category-chip">
-                  <span>{cat.name}</span>
-                  <div className="category-actions">
-                    <button onClick={() => startEditCategory(cat)} title="Edit">✎</button>
-                    <button onClick={() => deleteCategory(cat.id)} title="Delete" style={{ color: '#ef4444' }}>✕</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {activeTab === 'questions' && (
         <div className="admin-tab-content">
@@ -252,16 +147,6 @@ export default function QuestionManagementPage() {
                   Platform (Domain)
                   <select name="platform" value={form.platform} onChange={handleChange}>
                     {platforms.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </label>
-                <label>
-                  Category
-                  <select name="category" value={form.category} onChange={handleChange}>
-                    {categories.length > 0 ? (
-                      categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)
-                    ) : (
-                      <option>Frontend Development</option> /* Fallback if empty */
-                    )}
                   </select>
                 </label>
                 <label>
@@ -281,10 +166,6 @@ export default function QuestionManagementPage() {
                   <select name="question_type" value={form.question_type} onChange={handleChange}>
                     {questionTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                </label>
-                <label>
-                  Marks
-                  <input type="number" name="marks" value={form.marks} onChange={handleChange} min="1" max="100" />
                 </label>
               </div>
 
@@ -329,10 +210,6 @@ export default function QuestionManagementPage() {
                 <option value="">All Domains</option>
                 {platforms.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
-              <select name="category" value={filters.category} onChange={handleFilterChange}>
-                <option value="">All Categories</option>
-                {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
               <select name="difficulty" value={filters.difficulty} onChange={handleFilterChange}>
                 <option value="">All Difficulties</option>
                 {difficulties.map(d => <option key={d} value={d}>{d}</option>)}
@@ -352,9 +229,8 @@ export default function QuestionManagementPage() {
               <thead>
                 <tr>
                   <th>Question</th>
-                  <th>Domain / Category</th>
+                  <th>Platform</th>
                   <th>Type</th>
-                  <th>Marks</th>
                   <th>Difficulty</th>
                   <th style={{ width: '150px' }}>Actions</th>
                 </tr>
@@ -362,7 +238,7 @@ export default function QuestionManagementPage() {
               <tbody>
                 {questions.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="admin-empty">No questions found. Try adjusting filters.</td>
+                    <td colSpan="5" className="admin-empty">No questions found. Try adjusting filters.</td>
                   </tr>
                 ) : (
                   questions.map((q) => (
@@ -380,7 +256,6 @@ export default function QuestionManagementPage() {
                           {q.question_type}
                         </span>
                       </td>
-                      <td>{q.marks}</td>
                       <td>
                         <span className={`difficulty-badge diff-${q.difficulty.toLowerCase()}`}>
                           {q.difficulty}
