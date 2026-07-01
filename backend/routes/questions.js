@@ -63,12 +63,12 @@ router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => 
 // ─── POST /api/questions ──────────────────────────────────────────────────
 router.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const {
-    question_text, platform, language, difficulty, category,
+    question_text, platform, language, difficulty, category = '',
     question_type = 'Subjective', keywords = '', marks = 10, expected_answer = ''
   } = req.body;
 
-  if (!question_text || !platform || !language || !difficulty || !category) {
-    return res.status(400).json({ message: 'Question text, platform, language, difficulty, and category are required.' });
+  if (!question_text || !platform || !language || !difficulty) {
+    return res.status(400).json({ message: 'Question text, platform, language, and difficulty are required.' });
   }
 
   try {
@@ -89,12 +89,12 @@ router.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) =>
 router.put('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
   const {
-    question_text, platform, language, difficulty, category,
+    question_text, platform, language, difficulty, category = '',
     question_type = 'Subjective', keywords = '', marks = 10, expected_answer = ''
   } = req.body;
 
-  if (!question_text || !platform || !language || !difficulty || !category) {
-    return res.status(400).json({ message: 'Question text, platform, language, difficulty, and category are required.' });
+  if (!question_text || !platform || !language || !difficulty) {
+    return res.status(400).json({ message: 'Question text, platform, language, and difficulty are required.' });
   }
 
   try {

@@ -69,6 +69,31 @@ const summarizeText = (text) => {
   return text.length > 2000 ? `${text.slice(0, 2000)}...` : text;
 };
 
+const getAiConfig = async () => {
+  try {
+    const [settingsRows] = await pool.query('SELECT setting_key, setting_value FROM ai_settings');
+    const aiSettings = {};
+    settingsRows.forEach((row) => {
+      aiSettings[row.setting_key] = row.setting_value;
+    });
+
+    return {
+      aiEnabled: aiSettings.ai_enabled !== 'false',
+      coverageThreshold: Number(aiSettings.coverage_threshold) || 70,
+      maxSubQuestions: Number(aiSettings.max_sub_questions) || 3,
+      defaultDifficulty: aiSettings.default_difficulty || 'Medium'
+    };
+  } catch (error) {
+    console.warn('Unable to load AI settings:', error);
+    return {
+      aiEnabled: true,
+      coverageThreshold: 70,
+      maxSubQuestions: 3,
+      defaultDifficulty: 'Medium'
+    };
+  }
+};
+
 const parseKeywords = (text) => {
   if (!text) return [];
   return text
@@ -199,11 +224,13 @@ const getLatestCompanyDocument = async (studentId) => {
 
 router.post('/generate', authenticateToken, async (req, res) => {
   const { platform, language, difficulty, questionCount, interviewType, companyDescription } = req.body;
-  if (!platform || !language || !difficulty || !questionCount) {
-    return res.status(400).json({ message: 'Platform, language, difficulty, and questionCount are required.' });
+  if (!platform || !language || !questionCount) {
+    return res.status(400).json({ message: 'Platform, language, and questionCount are required.' });
   }
 
   try {
+    const aiConfig = await getAiConfig();
+    const effectiveDifficulty = difficulty?.trim() || aiConfig.defaultDifficulty;
     const wantedCount = Number(questionCount);
     const dbLimit = Math.max(1, Math.ceil(wantedCount / 2));
 
@@ -211,7 +238,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
       `SELECT id, question_text FROM questions
        WHERE platform = ? AND language = ? AND difficulty = ?
        LIMIT ?`,
-      [platform, language, difficulty, dbLimit]
+      [platform, language, effectiveDifficulty, dbLimit]
     );
 
     const [profileRows] = await pool.query(
@@ -234,7 +261,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     const aiQuestions = await generateGrokQuestions({
       platform,
       language,
-      difficulty,
+      difficulty: effectiveDifficulty,
       interviewType: interviewType || 'Technical',
       profile,
       companyDetails,
@@ -258,16 +285,19 @@ const {
 
 router.post('/start', authenticateToken, async (req, res) => {
   const { platform, language, difficulty, questionCount, interviewType, companyDescription } = req.body;
-  if (!platform || !language || !difficulty || !questionCount || !interviewType) {
-    return res.status(400).json({ message: 'All interview setup fields are required.' });
+  if (!platform || !language || !questionCount || !interviewType) {
+    return res.status(400).json({ message: 'Platform, language, questionCount, and interviewType are required.' });
   }
 
   try {
+    const aiConfig = await getAiConfig();
+    const effectiveDifficulty = difficulty?.trim() || aiConfig.defaultDifficulty;
+
     // 1. Create interview entry
     const [interviewResult] = await pool.query(
       `INSERT INTO interviews (user_id, platform, language, difficulty, interview_type, status)
        VALUES (?, ?, ?, ?, ?, 'started')`,
-      [req.user.id, platform, language, difficulty, interviewType]
+      [req.user.id, platform, language, effectiveDifficulty, interviewType]
     );
     const interviewId = interviewResult.insertId;
 
@@ -279,7 +309,7 @@ router.post('/start', authenticateToken, async (req, res) => {
       `SELECT id, question_text, expected_answer FROM questions
        WHERE platform = ? AND language = ? AND difficulty = ?
        LIMIT ?`,
-      [platform, language, difficulty, dbLimit]
+      [platform, language, effectiveDifficulty, dbLimit]
     );
 
     const [profileRows] = await pool.query(
@@ -309,7 +339,7 @@ router.post('/start', authenticateToken, async (req, res) => {
       const generated = await generateGrokQuestions({
         platform,
         language,
-        difficulty,
+        difficulty: effectiveDifficulty,
         interviewType: interviewType || 'Technical',
         profile,
         companyDetails,
@@ -415,8 +445,13 @@ router.post('/evaluate-answer', authenticateToken, async (req, res) => {
     );
     const subQuestionCount = countRows[0].count;
 
-    // Check threshold (70%) and attempts
-    if (finalCoverage < 70 && subQuestionCount < 3) {
+    const aiConfig = await getAiConfig();
+    const isAiEnabled = aiConfig.aiEnabled;
+    const coverageThreshold = aiConfig.coverageThreshold;
+    const maxSubQuestions = aiConfig.maxSubQuestions;
+
+    // Check threshold and attempts
+    if (isAiEnabled && finalCoverage < coverageThreshold && subQuestionCount < maxSubQuestions) {
       // Generate follow-up sub-question
       const subQuestionText = await generateSubQuestion({
         questionText: mainResponse.question_text,
